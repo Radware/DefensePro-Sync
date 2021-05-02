@@ -1,0 +1,679 @@
+##-----------------------------------------------------------------------------
+## COPYRIGHT 2019, Radware Ltd. All Rights Reserved 
+## THE USE, COPY OR INSTALLATION OF THIS/THESE FILE/FILES IS SUBJECT 
+## TO THE RADWARE "END USER LICENSE AGREEMENT" A COPY OF WHICH 
+## IS PROVIDED WITH THE PACKAGE THAT INCLUDES THIS FILE/FILES AND 
+## CAN ALSO BE ACCESSED AT  http://www.radware.com/Resources/eula.html
+## Author = Yaron Antebi
+## Sync DefensePro Configuration & Baselines
+##-----------------------------------------------------------------------------
+#property('summary', 'Sync DefensePro configuration & Baselines - Version 1.3 [2019-09-02 10:00]')
+
+#parse("dpSync/ps_common.vm")
+#parse("dpSync/dp_common.vm")
+#parse("dpSync/ps_beanSync.vm")
+
+#device($masterDevice, 'type=defensePro', 'prompt=DefensePro Source Device', 'lazyConnect=true')
+#device($standByDevices, 'type=defensePro[]', 'prompt=DefensePro Destintation Devices', 'lazyConnect=true')
+#param($deleteUnusedPolicies, 'type=bool', 'in', 'prompt=Delete Passive Device Spare Policies', 'defaultValue=false')
+#param($syncConfiguration, 'type=bool', 'in', 'prompt=Sync Configuration?', 'required=false', 'defaultValue=true')
+
+
+#param($nwDnsBaseline, 'type=bool', 'prompt=DNS Baselines', 'required=false', 'defaultValue=true')
+#param($nwBdosBaseline, 'type=bool', 'prompt=BDoS Baselines', 'required=false', 'defaultValue=true')
+#param($networkPoliciesExecptions, 'type=string[]', 'in', 'prompt=Network Protection -BASELINES- Exception List (Case Sensitive)', 'required=false')
+#param($srvHttpBaseline, 'type=bool', 'prompt=HTTP Baselines (DP Ver. 6 & 7)', 'required=false', 'defaultValue=true')
+
+#param($networkExportErrors, 'object[]', 'out')
+#param($networkImportErrors, 'object[]', 'out')
+#param($serverExportErrors, 'object[]', 'out')
+#param($serverImportErrors, 'object[]', 'out')
+
+## output params size summary
+#param($networkPoliciesSize, 'int', 'out')
+#param($networkPoliciesErrorSize, 'int', 'out')
+#param($serverPoliciesSize, 'int', 'out')
+#param($serverPoliciesErrorSize, 'int', 'out')
+
+#if(!$networkPoliciesExecptions)
+	#set($networkPoliciesExecptions = [])
+#end
+
+#set($SUPPORTED_VERSION = [6,7,8])
+#set($HT_MAX_POLICIES = 200)
+#set($ODS3_MAX_POLICIES = 50)
+#set($DBG = false)
+
+#########################
+##Vision Error reporting
+#########################
+#param($visionNetworkExportErrors, 'string', 'out', 'prompt= Network Export Errors')
+#param($visionNetworkImportErrors, 'string', 'out', 'prompt= Network Import Errors')
+#param($visionServerExportErrors, 'string', 'out', 'prompt= Server Export Errors')
+#param($visionServerImportErrors, 'string', 'out', 'prompt= Server Import Errors')
+#########################
+
+##in $DBG only
+#*
+#param($networkBaselinesExportErrors, 'object[]', 'out')
+#param($serverBaselinesExportErrors, 'object[]', 'out')
+#param($exportedNwBaseline, 'object[]', 'out')
+#param($exportedServerBaseline, 'object[]', 'out')
+#param($networkBaselines, 'string', 'out')
+#param($serverBaselines, 'string', 'out')
+#param($masterNetworkNames, 'object[]', 'out')
+#param($backupSpareNetworkPolicies, 'object[]', 'out')
+#param($masterServerNames, 'object[]', 'out')
+#param($backupSpareServerPolicies, 'object[]', 'out')
+*#
+#log("syslog-prefix Started Device Sync")
+
+#set($allDevices = [])
+#if(!$allDevices.contains($masterDevice))
+	#set($dummy = $allDevices.add($masterDevice))
+#end
+#foreach($dp in $standByDevices)
+	#if(!$allDevices.contains($dp))
+		#set($dummy = $allDevices.add($dp))
+	#end
+#end
+
+#if($allDevices.size() == 1)
+	#log('error','syslog-prefix got only 1 device as input, please set 2 devices or more')
+	#error('syslog-prefix got only 1 device as input, please set 2 devices or more')  
+#end
+
+
+#set($major_ver = [])
+#get_dp_major_version($major_ver, $masterDevice)
+
+#foreach($defensePro in $allDevices)
+	#select($defensePro)
+	#updateIfNeeded($defensePro, $major_ver[0])
+#end
+
+
+#set($masterNetworkPolicies = {})
+#set($masterServerPolicies = {})
+#set($masterNetworkNames = [])
+#set($masterServerNames = [])
+#set($backupNetworkPolicies = {})
+#set($backupServerPolicies = {})
+#set($backupSpareNetworkPolicies = [])
+#set($backupSpareServerPolicies = [])
+#set($serverBaselines = [])
+
+#if($major_ver[0] != 8)
+	## Comparing device tunning values
+	#compareTunningValues($masterDevice, $standByDevices)
+#end
+## Deleting unused policies at backup devices
+#deleteUnusedPolicies($masterDevice, $standByDevices)
+
+
+#set($BEANS_TO_SYNC_META=[
+{'name':'RsIDSImmediateChecksAttackEntry','fieldsToCompare': ['iDSImmChkId'],'fieldsToSkip':[],'beanIndexProperties':{},'shouldDelete': false},
+{'name':'RsIDSSynAttackEntry','fieldsToCompare': ['iDSSYNAttackName'],'fieldsToSkip':['IDSSYNAttackId'],'beanIndexProperties':{'IDSSYNAttackId':'0'},'shouldDelete': false},
+{'name':'RsIDSSynProfilesEntry','fieldsToCompare': ['name', 'serviceName'],'fieldsToSkip':['serviceId'],'beanIndexProperties':{'serviceId':'0'},'shouldDelete': false}
+])
+#if($major_ver[0] == 8)
+	#set($dummy = $BEANS_TO_SYNC_META.add({'name':'RsProtectedSslObjEntry','fieldsToCompare': ['objName'],'fieldsToSkip':[],'beanIndexProperties':{},'shouldDelete': false}))
+#end
+
+
+#if($syncConfiguration && !$DBG)
+	#foreach($importDevice in $standByDevices)
+		#syncBeans($BEANS_TO_SYNC_META, $masterDevice, $importDevice)
+	#end
+#end
+
+#set($networkExportErrors = [])
+#set($networkImportErrors = [])
+#set($serverExportErrors = [])
+#set($serverImportErrors = [])
+
+##------------------------##
+##IMPORT Network options  ##
+##------------------------##
+#foreach($importDevice in $standByDevices)
+	#set($importDevice.importPolicyOptions.overrideExisting = true)
+	#set($importDevice.importPolicyOptions.updatePolicies = false)
+	#set($importDevice.importPolicyOptions.secure = true)
+	#set($importDevice.importPolicyOptions.fixNewLines = true)
+#end
+
+##------------------------##
+##EXPORT Network config   ##
+##------------------------##
+#set($masterDevice.exportNetworkPolicyOptions.exportConfiguration = true)
+#set($masterDevice.exportNetworkPolicyOptions.exportBaselineBDoS = false)
+#set($masterDevice.exportNetworkPolicyOptions.exportBaselineDNS = false)
+#set($masterDevice.exportNetworkPolicyOptions.secure = true)
+
+#if($major_ver[0] == 8)
+	#set($masterDevice.exportNetworkPolicyOptions.exportTrafficFiltersProfile = true)
+	#set($masterDevice.exportNetworkPolicyOptions.exportBaselineHttpsFlood = false)
+#end
+
+##test start##
+#set($masterDevice.exportNetworkPolicyOptions.exportSignatureUserProfile = true)
+##test end##
+
+#set ($dnsBaselinePolicies = [])
+#set ($bdosBaselinePolicies = [])
+#set ($httpsFloodBaselinePolicies = [])
+#set ($networkPolicies = [])
+#set ($networkPoliciesInstance0 = [])
+#set ($networkPoliciesInstance1 = [])
+#log("syslog-prefix Reading all network policies from master device- $masterDevice.ip ")
+#foreach($policy in $masterDevice.readAllBeans("RsIDSNewRulesEntry"))
+	#set($dummy = $networkPolicies.add($policy.name))
+    #if($major_ver[0] != 6 && $major_ver[0] != 8)
+      #if($policy.instanceId == "INSTANCE0")
+          #set($dummy = $networkPoliciesInstance0.add($policy.name))
+      #else
+          #set($dummy = $networkPoliciesInstance1.add($policy.name))
+      #end
+    #end
+    #if(!$masterDevice.isEmpty($policy.profileDNS) && $policy.state == 'ACTIVE')
+        #set($dummy = $dnsBaselinePolicies.add($policy.name))
+    #end
+ 	#if(!$masterDevice.isEmpty($policy.profileNetflood) && $policy.state == 'ACTIVE')
+        #set($dummy = $bdosBaselinePolicies.add($policy.name))
+    #end
+	#if($major_ver[0] != 6 || $major_ver[0] != 7)
+		#if(!$masterDevice.isEmpty($policy.ProfileHttpsFlood) && $policy.state == 'ACTIVE')
+			#set($dummy = $masterDevice.newBean("RsAssociatedProtectedSSLObjectEntry"))
+			#set($dummy.sslPolicy = $policy.name)
+			#set($dummy = $masterDevice.read($dummy))
+			#if(!$masterDevice.isEmpty($dummy))
+				#set($dummy = $httpsFloodBaselinePolicies.add($policy.name))
+			#end
+		#end
+	#end
+#end
+#log("syslog-prefix Finished Reading all network policies from master device- $masterDevice.ip ")
+
+#if($major_ver[0] != 6)
+	#set($MAX_POLICIES = $HT_MAX_POLICIES)
+#else
+	#set($MAX_POLICIES = $ODS3_MAX_POLICIES)
+#end
+
+#if($major_ver[0] != 8)
+	#if($networkPolicies.size() == $MAX_POLICIES || $dnsBaselinePolicies.size() == $masterValues.dns || $bdosBaselinePolicies.size() == $masterValues.bdos)
+		#log('error', "syslog-prefix Current number of network policies (Network policy - $networkPolicies.size() , bdos -  $bdosBaselinePolicies.size() , dns - $dnsBaselinePolicies.size()) dont allows import of new policies please raise the max value or delete unused policy from device - $masterDevice.ip")
+		#error("Current number of network policies (Network policy - $networkPolicies.size() , bdos -  $bdosBaselinePolicies.size() , dns - $dnsBaselinePolicies.size()) dont allows import of new policies please raise the max value or delete unused policy from device - $masterDevice.ip")
+	#end
+#elseif($networkPolicies.size() == $MAX_POLICIES)
+	#log('error', "syslog-prefix Current number of network policies (Network policy - $networkPolicies.size() , bdos -  $bdosBaselinePolicies.size() , dns - $dnsBaselinePolicies.size()) dont allows import of new policies please raise the max value or delete unused policy from device - $masterDevice.ip")
+	#error("Current number of network policies (Network policy - $networkPolicies.size() , bdos -  $bdosBaselinePolicies.size() , dns - $dnsBaselinePolicies.size()) dont allows import of new policies please raise the max value or delete unused policy from device - $masterDevice.ip")
+#end
+
+#set($exportedNwPolicies = [])
+
+#if($syncConfiguration && !$DBG)
+	#if($major_ver[0] != 6 && $major_ver[0] != 8)
+		#if($networkPoliciesInstance0.size() > 0)
+			#exportImportPolicy($networkPoliciesInstance0, true, "INSTANCE0")
+		#end
+		#if($networkPoliciesInstance1.size() > 0)
+			#exportImportPolicy($networkPoliciesInstance1, true, "INSTANCE1")
+		#end
+	#elseif($networkPolicies.size() > 0)
+		#exportImportPolicy($networkPolicies, true, "INSTANCE0")
+	#end
+#end
+
+#set($serverPolicies = [])
+#set($httpBaselineProfiles = [])
+
+#if($major_ver[0] != 8)
+	##------------------------##
+	##EXPORT Server Config    ##
+	##------------------------##
+	#set($masterDevice.exportServerPolicyOptions.exportConfiguration = true)
+	#set($masterDevice.exportServerPolicyOptions.exportBaselineHTTP = false)
+	#set($masterDevice.exportServerPolicyOptions.secure = true)
+
+	#log("syslog-prefix Reading all server policies from master device - $masterDevice.ip ")
+	#foreach($policy in $masterDevice.readAllBeans("RsIDSServerTableEntry"))
+		#set($dummy = $serverPolicies.add($policy.name))
+		#if(!$masterDevice.isEmpty($policy.hTTPProfile))
+			#set($dummy = $httpBaselineProfiles.add($policy.name))
+		#end
+	#end
+	#log("syslog-prefix Finished Reading all server policies from master device - $masterDevice.ip ")
+	#set($exportedServerPolicies = [])
+
+	#if($serverPolicies.size() == $masterValues.server)
+		#log('error', "syslog-prefix Current number of server policies dont allows import of new policies please raise the max value or delete unused policie device - $masterDevice.ip")
+		#error("Current number of server policies dont allows import of new policies please raise the max value or delete unused policie device - $masterDevice.ip")
+	#end
+	#if($syncConfiguration && !$DBG)
+		#if($serverPolicies.size() > 0)
+			#exportImportPolicy($serverPolicies, false, "INSTANCE0")
+		#end
+	#end
+	##Apply Policies##
+	#foreach($defensePro in $standByDevices)
+		#select($defensePro)
+		#updateIfNeeded($defensePro, $major_ver[0])
+	#end
+#end
+
+##------------------------##
+###Updating-BaseLines-Start#
+##------------------------##
+#set($exportedNwBaseline = [])
+#set($exportedHttpsFloodBaseline = [])
+#set($exportedServerBaseline = [])
+#set($networkBaselinesExportErrors = [])
+#set($httpsFloodBaselinesExportErrors = [])
+#set($serverBaselinesExportErrors = [])
+
+##NetworkOptions##
+#set($masterDevice.exportNetworkPolicyOptions.exportConfiguration = false)
+
+##Set Update flag true, mandatory for importing baselines.
+#foreach($importDevice in $standByDevices)
+	#set($importDevice.importPolicyOptions.updatePolicies = true)
+#end
+#set($stackNetworkBaselines = '')
+
+#if($bdosBaselinePolicies.size() > 0 && $nwBdosBaseline)
+  #set($dummy = $bdosBaselinePolicies.removeAll($networkPoliciesExecptions))
+  #set($masterDevice.exportNetworkPolicyOptions.exportBaselineBDoS = true)
+	#if($major_ver[0] == 8)
+		#set($masterDevice.exportNetworkPolicyOptions.exportBaselineHttpsFlood = false)
+	#end
+  #set($masterDevice.exportNetworkPolicyOptions.exportBaselineDNS = false)
+  #foreach($policy in $bdosBaselinePolicies)
+  	#log('debug',"Exporting BDos baseline policy - $policy - from master device $masterDevice")
+  	#set($result = $masterDevice.exportNetworkPolicy($policy))
+  	#if($result.success)
+  		#set($stackNetworkBaselines = ' ' + $stackNetworkBaselines + $esc.n + $esc.n + $result.policy + $esc.n + $esc.n)
+  		#set($dummy = $exportedNwBaseline.add($policy))
+  	#else
+  		#set($error = {'policy': $policy, 'error': $result.message})
+  		#set($errorMessage = "Failed to export network BDos baseline $policy $result.message")
+  		#set($dummy = $networkBaselinesExportErrors.add($error))
+  		#log('error',"syslog-prefix $errorMessage")
+	#end
+  #end
+
+	#if($major_ver[0] == 8)
+		#set($masterDevice.exportNetworkPolicyOptions.exportBaselineHttpsFlood = true)
+		#set($masterDevice.exportNetworkPolicyOptions.exportBaselineBDoS = false)
+		#foreach($policy in $httpsFloodBaselinePolicies)
+			#log('deubg',"Exporting HTTPsFlood baseline policy - $policy - from master device $masterDevice")
+			#set($result = $masterDevice.exportNetworkPolicy($policy))
+			#if($result.success)
+				#set($stackNetworkBaselines = ' ' + $stackNetworkBaselines + $esc.n + $esc.n + $result.policy + $esc.n + $esc.n)
+				#set($dummy = $exportedHttpsFloodBaseline.add($policy))
+			#else
+				#set($error = {'policy': $policy, 'error': $result.message})
+				#set($errorMessage = "Failed to export HTTPsFlood baseline $policy $result.message")
+				#set($dummy = $httpsFloodBaselinesExportErrors.add($error))
+				#log('error',"syslog-prefix $errorMessage")
+			#end
+		#end
+	#end
+#end
+
+#if($dnsBaselinePolicies.size() > 0 && $nwDnsBaseline)
+  #set($dummy = $dnsBaselinePolicies.removeAll($networkPoliciesExecptions))
+  #set($masterDevice.exportNetworkPolicyOptions.exportBaselineBDoS = false)
+  #set($masterDevice.exportNetworkPolicyOptions.exportBaselineHttpsFlood = false)
+  #set($masterDevice.exportNetworkPolicyOptions.exportBaselineDNS = true)
+  #foreach($policy in $dnsBaselinePolicies)
+    #log('debug',"Exporting DNS baseline policy - $policy - from master device $masterDevice")
+    #set($result = $masterDevice.exportNetworkPolicy($policy))
+    #if($result.success)
+  		#set($stackNetworkBaselines = ' ' + $stackNetworkBaselines + $esc.n + $esc.n + $result.policy + $esc.n + $esc.n)
+  		#set($dummy = $exportedNwBaseline.add($policy))
+  	#else
+  		#set($error = {'policy': $policy, 'error': $result.message})
+  		#set($errorMessage = "Failed to export network DNS baseline $policy $result.message")
+  		#set($dummy = $networkBaselinesExportErrors.add($errorMessage))
+  		#log('error',"syslog-prefix $errorMessage")
+  	#end
+  #end
+#end
+#if($nwBdosBaseline || $nwDnsBaseline)
+	#importPolicy($stackNetworkBaselines, $standByDevices, true, "stackNetworkBaselinesName", "INSTANCE0")
+#end
+
+#set($networkBaselines = $stackNetworkBaselines)
+
+##ServerOptions##
+#if($major_ver[0] != 8)
+	#if($httpBaselineProfiles.size() > 0 && $srvHttpBaseline)
+		#set($masterDevice.exportServerPolicyOptions.exportConfiguration = false)
+		#set($masterDevice.exportServerPolicyOptions.exportBaselineHTTP = true)
+		#set($stackServerBaselines = '')
+		#foreach($policy in $httpBaselineProfiles)
+			#set($result = $masterDevice.exportServerPolicy($policy))
+			#log('debug',"Exporting HTTP baseline policy - $policy - from master device $masterDevice")
+			#if($result.success)
+				#set($stackServerBaselines = ' ' + $stackServerBaselines + $esc.n + $esc.n + $result.policy + $esc.n + $esc.n)
+				#set($dummy = $exportedServerBaseline.add($policy))
+			#else
+				#set($error = {'policy': $policy, 'error': $result.message})
+				#set($errorMessage = "Failed to export server policy $policy $result.message")
+				#log('error',"syslog-prefix  $errorMessage")
+				#set($dummy = $serverBaselinesExportErrors.add($error))
+			#end
+		#end
+		#set($stackServerBaselines = $esc.n + $esc.n + $stackServerBaselines + $esc.n + $esc.n )
+		#importPolicy($stackServerBaselines, $standByDevices, false, "stackServerBaselinesName", "INSTANCE0")
+		#set($serverBaselines = $stackServerBaselines)
+	#end
+#end
+##------------------------##
+##Updating-BaseLines-END  ##
+##------------------------##
+
+
+#set($BEANS_TO_SYNC_META=[
+{'name':'RsIDSImmediateChecksAttackEntry','fieldsToCompare': ['iDSImmChkId'],'fieldsToSkip':[],'beanIndexProperties':{},'shouldDelete': true},
+{'name':'RsIDSSynProfilesEntry','fieldsToCompare': ['name', 'serviceName'],'fieldsToSkip':['serviceId'],'beanIndexProperties':{'serviceId':'0'},'shouldDelete': true}
+])
+
+#if($major_ver[0] == 8)
+	#set($dummy = $BEANS_TO_SYNC_META.add({'name':'RsProtectedSslObjEntry','fieldsToCompare': ['objName'],'fieldsToSkip':[],'beanIndexProperties':{},'shouldDelete': true}))
+#end
+
+#if($syncConfiguration && $DBG)
+	#foreach($importDevice in $standByDevices)
+		#syncBeans($BEANS_TO_SYNC_META, $masterDevice, $importDevice)
+	#end
+#end
+
+
+#foreach($defensePro in $standByDevices)
+	#select($defensePro)
+	#updateIfNeeded($defensePro, $major_ver[0])
+#end
+
+#log("syslog-prefix End Device Sync ")
+
+##------------------------##
+##DP Macro's             ##
+##------------------------##
+#macro(exportImportPolicy, $policies, $isNwPol, $instance)
+	#foreach($policyName in $policies)
+		#if($isNwPol)
+			#log('debug',"Exporting Network policy $policyName")
+			#set($result = $masterDevice.exportNetworkPolicy($policyName))
+		#else
+			#log('debug',"Exporting Server policy $policyName")
+			#set($result = $masterDevice.exportServerPolicy($policyName))
+		#end
+		## The result object contains success, policy, and message config
+		#if($result.success)
+			#set($policy = $result.policy)
+			#if($isNwPol)
+				#importPolicy($policy, $standByDevices, true, $policyName, $instance)
+				#set($dummy = $exportedNwPolicies.add($policy))
+			#else
+				#importPolicy($policy, $standByDevices, false, $policyName, $instance)
+				#set($dummy = $exportedServerPolicies.add($policy))
+			#end
+		#else
+			#set($error = {'policy': $policyName, 'error': $result.message})
+			#if($isNwPol)
+				#set($errorMessage = "Failed to export network policy $policyName $result.message")
+				#log('error'," $errorMessage")
+				#set($dummy = $networkExportErrors.add($error))
+			#else
+				#set($errorMessage = "Failed to export server policy $policyName $result.message")
+				#log('error',"syslog-prefix $errorMessage")
+				#set($dummy = $serverExportErrors.add($error))
+			#end
+		#end
+	#end
+#end
+
+#macro(importPolicy, $policy, $standByDevices, $isNwPol, $policyName, $instance)
+	#foreach($importDevice in $standByDevices)
+    	#if($major_ver[0] != 6 && $major_ver[0] != 8)
+          #if($instance == "INSTANCE0" && $isNwPol)
+              #set($importDevice.importPolicyOptions.instance = 0 )
+          #elseif($isNwPol)
+              #set($importDevice.importPolicyOptions.instance = 1 )
+          #end
+        #end
+		#if ($isNwPol)
+        	#log('debug',"Importing Network policy $policyName")
+			#set($result = $importDevice.importNetworkPolicy($policy))
+		#else
+        	#log('debug',"Importing Server policy $policyName")
+			#set($result = $importDevice.importServerPolicy($policy))
+		#end
+		#if(!$result.success)
+			#set($error = {'policy': $policyName, 'error': $result.message, 'host': $importDevice.host})
+			#if ($isNwPol)
+				#set($errorMessage = "Failed to import network policy $policyName on $importDevice.host $result.message")
+				#log('debug', "Failed to import network policy ${policyName} on ${importDevice.host} ${result.message}")
+				#set($dummy = $networkImportErrors.add($error))
+			#else
+				#set($errorMessage = "Failed to import server policy $policyName on $importDevice.host $result.message")
+				#log('debug', "Failed to import server policy ${policyName} on ${importDevice.host} ${result.message}")
+				#set($dummy = $serverImportErrors.add($error))
+			#end
+			#log('error',"syslog-prefix $errorMessage")
+		#end
+	#end
+#end
+
+#macro(compareTunningValues, $master, $standByDevices)
+  #set($masterValues = {})
+  #set($result = [1])
+  #ps_common_returnBeanField($master, 'RsDnsProt', 'rsDnsProtPolicies', $result)
+  #set($masterValues.dns = $result[0])
+  #ps_common_returnBeanField($master, 'RsNetFlood', 'rsIDSNetFloodPolicies', $result)
+  #set($masterValues.bdos = $result[0])
+  #ps_common_returnBeanField($master, 'RsIDS', 'serverProtectionTabServers', $result)
+  #set($masterValues.server = $result[0])
+
+  #set($deviceValues = {})
+  #foreach($device in $standByDevices)
+  	#ps_common_returnBeanField($device, 'RsDnsProt', 'rsDnsProtPolicies', $result)
+  	#set($deviceValues.dns = $result[0])
+  	#ps_common_returnBeanField($device, 'RsNetFlood', 'rsIDSNetFloodPolicies', $result)
+  	#set($deviceValues.bdos = $result[0])
+  	#ps_common_returnBeanField($device, 'RsIDS', 'serverProtectionTabServers', $result)
+  	#set($deviceValues.server = $result[0])
+  	#if($masterValues.dns != $deviceValues.dns || $masterValues.bdos != $deviceValues.bdos || $masterValues.server != $deviceValues.server)
+  		#log('error',"one or more tunning values is different from master device ( $master.ip), please fix standBy device ($device.ip)")
+        #error("one or more tunning values is different from master device ( $master.ip), please fix standBy device ($device.ip)")
+  	#end
+  #end
+#end
+
+
+
+#macro(deleteUnusedPolicies, $masterDevice, $standByDevices)
+  #foreach($policy in $masterDevice.readAllBeans('RsIDSNewRulesEntry'))
+      #set($dummy = $masterNetworkPolicies.put($policy.name,''))
+      #set($dummy = $masterNetworkNames.add($policy.name))
+  #end
+  #foreach($policy in $masterDevice.readAllBeans("RsIDSServerTableEntry"))
+      #set($dummy = $masterServerPolicies.put($policy.name,''))
+      #set($dummy = $masterServerNames.add($policy.name))
+  #end
+  #foreach($device in $standByDevices)
+      #select($device)
+      #foreach($policy in $device.readAllBeans('RsIDSNewRulesEntry'))
+          #set($dummy = $backupNetworkPolicies.put($policy.name,''))
+      #end
+      #set($dummy = $backupNetworkPolicies.keySet().removeAll($masterNetworkPolicies.keySet()))
+      #foreach($policyName in $backupNetworkPolicies.keySet())
+          #set($dummy = $backupSpareNetworkPolicies.add($policyName))
+		  #if($deleteUnusedPolicies)
+			#log('debug',"deleting spare network policy - $policyName on device - $device.ip")
+			dp policies-config table del $policyName
+		  #else
+			#log('debug',"Spare Network Policy - $policyName on device - $device.ip")
+		  #end
+      #end
+      #foreach($policy in $device.readAllBeans("RsIDSServerTableEntry"))
+          #set($dummy = $backupServerPolicies.put($policy.name,''))
+      #end
+      #set($dummy = $backupServerPolicies.keySet().removeAll($masterServerPolicies.keySet()))
+      #foreach($policyName in $backupServerPolicies.keySet())
+          #set($dummy = $backupSpareServerPolicies.add($policyName))
+		  #if($deleteUnusedPolicies)
+			#log('debug',"deleting spare server policy - $policyName on device - $device.ip")
+			dp server-protection protected-servers del $policyName
+		#else
+			#log('debug',"Spare server policy - $policyName on device - $device.ip")
+		#end
+      #end
+      ##set($dummy = $device.apply())
+  #end
+#end
+
+#########################
+##Vision Error reporting
+#########################
+#set($visionNetworkExportErrors = '')
+#foreach($i in $networkExportErrors)
+     #set($visionNetworkExportErrors = $visionNetworkExportErrors + $i)
+#end
+#set($visionNetworkImportErrors = '')
+#foreach($i in $networkImportErrors)
+     #set($visionNetworkImportErrors = $visionNetworkImportErrors + $i)
+#end
+#set($visionServerExportErrors = '')
+#foreach($i in $serverExportErrors)
+     #set($visionServerExportErrors = $visionServerExportErrors + $i)
+#end
+#set($visionServerImportErrors = '')
+#foreach($i in $serverImportErrors)
+     #set($visionServerImportErrors = $visionServerImportErrors + $i)
+#end
+#########################
+
+#set($networkPoliciesSize = $networkPolicies.size()+$bdosBaselinePolicies.size()+$dnsBaselinePolicies.size()+$httpsFloodBaselinePolicies.size())
+#set($networkPoliciesErrorSize = $networkExportErrors.size()+$networkBaselinesExportErrors.size()+$httpsFloodBaselinesExportErrors.size())
+#set($serverPoliciesSize = $serverPolicies.size()+ $httpBaselineProfiles.size())
+#set($serverPoliciesErrorSize = $serverExportErrors.size()+ $serverBaselinesExportErrors.size())
+
+
+#log('debug',"networkExportErrors: ${networkExportErrors}")
+#log('debug',"networkBaselinesExportErrors: ${networkBaselinesExportErrors}")
+#log('debug',"httpsFloodBaselinesExportErrors: ${httpsFloodBaselinesExportErrors}")
+
+#log('debug',"networkBaselinesExportErrors: ${networkBaselinesExportErrors}")
+#log('debug'," serverBaselinesExportErrors: ${serverBaselinesExportErrors}")
+#log('debug',"exportedNwBaseline : ${exportedNwBaseline}")
+#log('debug',"exportedServerBaseline: ${exportedServerBaseline}")
+##log('debug',"networkBaselines: ${networkBaselines}")
+#log('debug',"serverBaselines: ${serverBaselines}")
+#log('debug',"masterNetworkNames: ${masterNetworkNames}")
+#log('debug',"backupSpareNetworkPolicies: ${backupSpareNetworkPolicies}")
+#log('debug',"masterServerNames: ${masterServerNames}")
+#log('debug',"backupSpareServerPolicies: ${backupSpareServerPolicies}")
+#log('debug',"networkImportErrors: ${networkImportErrors}")
+#log('debug',"networkExportErrors: ${networkExportErrors}")
+#log('debug',"serverImportErrors: ${serverImportErrors}")
+#log('debug',"serverExportErrors: ${serverExportErrors}")
+
+#result('text/html')
+
+<h2>Devices</h2>
+
+<span>Source: ${masterDevice.host}</span>
+
+<p>
+    Destinations:
+<ul>
+    #foreach ($device in $standByDevices)
+    <li>${device.host}
+#end
+</ul>
+</p>
+
+<p>
+<h2>Summary</h2>
+<table border="1">
+    <tr>
+        <th>Policy Type</th>
+        <th>Policies</th>
+        <th>Export Errors</th>
+        <th>Import Errors</th>
+    </tr>
+
+    <tr>
+        <td>Network Policies And BDos\DNS\HTTPs Flood Baselines</td>
+        #set($sum = $networkPolicies.size()+$bdosBaselinePolicies.size()+$dnsBaselinePolicies.size()+$httpsFloodBaselinePolicies.size())
+        <td>$sum</td>
+        #set($sum = $networkExportErrors.size()+$networkBaselinesExportErrors.size()+$httpsFloodBaselinesExportErrors.size())
+        <td>$sum</td>
+        <td>${networkImportErrors.size()}</td>
+    </tr>
+
+    <tr>
+        <td>Server Policies</td>
+		#set($serverSum = $serverPolicies.size()+ $httpBaselineProfiles.size())
+        <td>$serverSum</td>
+        #set($sum = $serverExportErrors.size()+ $serverBaselinesExportErrors.size())
+        <td>$sum</td>
+        <td>${serverImportErrors.size()}</td>
+    </tr>
+
+</table>
+</p>
+
+<h2>Server Export Errors</h2>
+<table border="1">
+    <tr>
+        <th>Policy</th>
+        <th>Error</th>
+    </tr>
+    #foreach ($error in $serverExportErrors)
+        <tr><td>${error.policy}</td><td>${error.error}</td></tr>
+    #end
+</table>
+
+<h2>Server Import Errors</h2>
+<table border="1">
+    <tr>
+        <th>Policy</th>
+        <th>Host</th>
+        <th>Error</th>
+    </tr>
+    #foreach ($error in $serverImportErrors)
+        <tr><td>${error.policy}</td><td>${error.host}</td><td>${error.error}</td></tr>
+    #end
+</table>
+
+
+<h2>Network Export Errors</h2>
+<table border="1">
+    <tr>
+        <th>Policy</th>
+        <th>Error</th>
+    </tr>
+    #foreach ($error in $networkExportErrors)
+        <tr><td>${error.policy}</td><td>${error.error}</td></tr>
+    #end
+</table>
+
+
+<h2>Network Import Errors</h2>
+<table border="1">
+    <tr>
+        <th>Policy</th>
+        <th>Host</th>
+        <th>Error</th>
+    </tr>
+    #foreach ($error in $networkImportErrors)
+        <tr><td>${error.policy}</td><td>${error.host}</td><td>${error.error}</td></tr>
+    #end
+</table>
+
+#end
+
