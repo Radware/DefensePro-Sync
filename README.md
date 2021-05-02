@@ -1,6 +1,6 @@
 # DefensePro-Sync
 
-Sync DefensePro Configuration & Baselines
+Sync DefensePro Configuration & Baselines.
 
 ## Installation
 
