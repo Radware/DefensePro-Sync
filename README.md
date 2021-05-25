@@ -75,6 +75,7 @@ Copyright 2020 Radware – All Rights Reserved
 
 ## Mail Snapshot
 [Summary_Mail](https://i.imgur.com/gCW3gzx.png)
+![](https://i.imgur.com/gCW3gzx.png)
 
 ## Disclaimer
 There is no warranty, expressed or implied, associated with this product.
