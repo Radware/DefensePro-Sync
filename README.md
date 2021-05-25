@@ -74,7 +74,6 @@ Copyright 2020 Radware – All Rights Reserved
 [MIT](https://choosealicense.com/licenses/mit/)
 
 ## Mail Snapshot
-[Summary_Mail](https://i.imgur.com/gCW3gzx.png)
 ![](https://i.imgur.com/gCW3gzx.png)
 
 ## Disclaimer
