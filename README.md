@@ -71,7 +71,7 @@ Please make sure to update tests as appropriate.
 Copyright 2020 Radware – All Rights Reserved
 
 ## License
-[MIT](https://choosealicense.com/licenses/mit/)
+[Apache2.0](https://choosealicense.com/licenses/apache-2.0/)
 
 ## Mail Snapshot
 ![](https://i.imgur.com/gCW3gzx.png)
