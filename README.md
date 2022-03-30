@@ -35,7 +35,7 @@ Download the release version of this project and upload to vDirect.
 5. Max duration for the Script should take not more than 10 min.
 
 ## Supported Versions
-Defense Pro 6,7,8
+Defense Pro 8.26.2
 
 ## How to install
 
