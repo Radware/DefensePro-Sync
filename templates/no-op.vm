@@ -1,0 +1,6 @@
+#device($masterDevice, 'type=defensePro', 'prompt=DefensePro Source Device', 'lazyConnect=true')
+#device($standByDevices, 'type=defensePro[]', 'prompt=DefensePro Destintation Devices', 'lazyConnect=true')
+
+system utilization ram
+
+#error("restart connection")
