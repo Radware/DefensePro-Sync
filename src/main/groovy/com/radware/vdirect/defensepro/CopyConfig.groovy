@@ -257,7 +257,7 @@ class CopyConfig {
                     uiVisible = "sendSMTPReport",uiRequired = "sendSMTPReport", required=false) String from,
             @Param(name = "To", type = 'string', defaultValue = "to@org.com",
                     uiVisible = "sendSMTPReport",uiRequired = "sendSMTPReport", required=false) String recipient) {
-        String testOutputResult = "A"
+        String testOutputResult = "AA"
         try {
             def version = vdirect.getWorkflowManager().getWorkflowTemplate("dpSync").version
             log.info("Workflow version: ${version}")
