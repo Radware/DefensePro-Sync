@@ -287,8 +287,10 @@
   ## remove all network exception list
   #set($dummy = $bdosBaselinePolicies.removeAll($networkPoliciesExecptions))
   ##remove all failed import config policy
-  #log('debug', "removing failed config policy from exporting BDOS baselines - $networkNameImportErrors ")
-  #set($dummy = $bdosBaselinePolicies.removeAll($networkNameImportErrors))
+  #if($networkNameImportErrors.size() > 0)
+	#log('debug', "removing failed config policy from exporting BDOS baselines - $networkNameImportErrors ")
+	#set($dummy = $bdosBaselinePolicies.removeAll($networkNameImportErrors))
+  #end
   #set($masterDevice.exportNetworkPolicyOptions.exportBaselineBDoS = true)
 	#if($major_ver[0] == 8)
 		#set($masterDevice.exportNetworkPolicyOptions.exportBaselineHttpsFlood = false)
@@ -315,8 +317,10 @@
 		## remove all network exception list
 		#set($dummy = $httpsFloodBaselinePolicies.removeAll($networkPoliciesExecptions))
 		##remove all failed import config policy
-		#log('debug', "removing failed config policy from exporting HTTPs Flood baselines - $networkNameImportErrors ")
-		#set($dummy = $httpsFloodBaselinePolicies.removeAll($networkNameImportErrors))
+		#if($networkNameImportErrors.size() > 0)
+			#log('debug', "removing failed config policy from exporting HTTPs Flood baselines - $networkNameImportErrors ")
+			#set($dummy = $httpsFloodBaselinePolicies.removeAll($networkNameImportErrors))
+		#end
 		#foreach($policy in $httpsFloodBaselinePolicies)
 			#log('deubg',"Exporting HTTPsFlood baseline policy - $policy - from master device $masterDevice")
 			#set($result = $masterDevice.exportNetworkPolicy($policy))
@@ -337,8 +341,10 @@
   ## remove all network exception list
   #set($dummy = $dnsBaselinePolicies.removeAll($networkPoliciesExecptions))
   ##remove all failed import config policy
-  #log('debug', "removing failed config policy from exporting DNS baselines - $networkNameImportErrors ")
-  #set($dummy = $dnsBaselinePolicies.removeAll($networkNameImportErrors))
+  #if($networkNameImportErrors.size() > 0)
+	#log('debug', "removing failed config policy from exporting DNS baselines - $networkNameImportErrors ")
+  	#set($dummy = $dnsBaselinePolicies.removeAll($networkNameImportErrors))
+  #end
   #set($masterDevice.exportNetworkPolicyOptions.exportBaselineBDoS = false)
   #set($masterDevice.exportNetworkPolicyOptions.exportBaselineHttpsFlood = false)
   #set($masterDevice.exportNetworkPolicyOptions.exportBaselineDNS = true)

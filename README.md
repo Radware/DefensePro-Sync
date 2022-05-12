@@ -6,6 +6,13 @@ Sync DefensePro Configuration & Baselines.
 
 Download the release version of this project and upload to vDirect.
 
+## Important Notes
+1. Sync may take couple of min, during that time DP may terminate the connection, it is good practice to set the below 
+values:
+
+    `manage telnet session-timeout set 35`
+    `manage ssh session-timeout set 35`
+
 ## Supported Features
 
 	- Network Policy with all its dependencies.

@@ -7,7 +7,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 class CheckVersions {
-    public static final SUPPORTED_VERSIONS = [6,7,8]
+    public static final SUPPORTED_VERSIONS = [8]
     private static final Logger log = LoggerFactory.getLogger(CheckVersions.class)
 
     public static compare(DeviceConnection sourceDevice ,List<DeviceConnection> destinationDevices){
