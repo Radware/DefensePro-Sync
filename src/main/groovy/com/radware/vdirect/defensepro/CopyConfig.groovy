@@ -239,7 +239,7 @@ class CopyConfig {
                     defaultValue = 'true') boolean nwBdosBaseline,
             @Param(name = 'networkPoliciesExecptions', type = 'string[]',
                     prompt = 'Network Protection -BASELINES- Exception List (Case Sensitive)',
-                    required = false) String[] networkPoliciesExecptions,
+                    required = true, defaultValue = '[]') String[] networkPoliciesExecptions,
             @Param(name = 'srvHttpBaseline', type = 'bool', prompt = 'HTTP Baselines (DP Ver. 6 & 7)',
                     defaultValue = 'false', uiEditable = "false") boolean srvHttpBaseline,
             @Param(name = 'sendSMTPReport', type = 'bool', prompt = 'Mail Notification',
@@ -452,6 +452,7 @@ class CopyConfig {
                            masterDevice : masterDevice, deviceConnectionList: deviceConnectionList, sslCertsExportErrors: sslCertsExportErrors,
                            sslCertsImportErrors:sslCertsImportErrors, sslCertsExportSum:sslCertsExportSum, sslCertsImportSum:sslCertsImportSum
                            ]
+
             def template =
                     '''
             <div>
@@ -612,7 +613,9 @@ class CopyConfig {
             log.info("End Sync")
             //return engine.createTemplate(template).make(binding).toString()
 
+
             testOutputResult = engine.createTemplate(template).make(binding).toString()
+
 
 
             if (sendSMTPReport){
