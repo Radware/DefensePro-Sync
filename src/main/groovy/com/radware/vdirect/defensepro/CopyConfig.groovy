@@ -219,6 +219,8 @@ class CopyConfig {
             @Device(name = 'dstDP', type = DeviceType.defensePro, prompt = "Dest DP", maxLength = -1) DeviceConnection[] dstDP,
             @Param(name = 'chooseMasterByBw', type = 'bool', prompt = 'Selecting Source Device Dynamically (Current Higher BW)',
                     defaultValue = 'false') boolean chooseMasterByBw,
+            @Param(name = 'safeRevert', type = 'bool', prompt = 'Revert Config Upon Import \n Policy Failure',
+                    defaultValue = 'true') boolean safeRevert,
             @Param(name = 'deleteUnusedPolicies', type = 'bool', prompt = 'Delete Passive Device Spare Policies',
                     defaultValue = 'false') boolean deleteUnusedPolicies,
             @Param(name = 'syncSslCertificates', type = 'bool', prompt = 'Sync SSL Certificates',
@@ -231,14 +233,14 @@ class CopyConfig {
             @Param(name = 'syncConfiguration', type = 'bool', prompt = 'Sync Configuration',
                     defaultValue = 'true') boolean syncConfiguration,
             @Param(name = 'syncBlackWhiteList', type = 'bool',
-                    prompt = 'Sync Block\\Allow lists (includes NetworkClasses)', uiEditable = "true",
+                    prompt = 'Sync Block\\Allow lists \n (includes NetworkClasses)', uiEditable = "true",
                     defaultValue = 'false') boolean syncBlackWhiteList,
             @Param(name = 'nwDnsBaseline', type = 'bool', prompt = 'DNS Baselines',
                     defaultValue = 'true') boolean nwDnsBaseline,
             @Param(name = 'nwBdosBaseline', type = 'bool', prompt = 'BDoS Baselines',
                     defaultValue = 'true') boolean nwBdosBaseline,
             @Param(name = 'networkPoliciesExecptions', type = 'string[]',
-                    prompt = 'Network Protection -BASELINES- Exception List (Case Sensitive)',
+                    prompt = 'Network Protection -BASELINES- \n Exception List (Case Sensitive)',
                     required = true, defaultValue = '[]') String[] networkPoliciesExecptions,
             @Param(name = 'srvHttpBaseline', type = 'bool', prompt = 'HTTP Baselines (DP Ver. 6 & 7)',
                     defaultValue = 'false', uiEditable = "false") boolean srvHttpBaseline,
@@ -413,10 +415,10 @@ class CopyConfig {
                 SyncNetworkClass.syncNwClass(masterDevice, deviceConnectionList, deleteUnusedPolicies)
             }
 
-            def tempResult = runTemplate('dpSync.vm', ['masterDevice'     : masterDevice, 'standByDevices': deviceConnectionList, 'deleteUnusedPolicies': deleteUnusedPolicies,
+            def tempResult = runTemplate('dpSync.vm', ['masterDevice' : masterDevice, 'standByDevices': deviceConnectionList, 'deleteUnusedPolicies': deleteUnusedPolicies,
                                                        'syncConfiguration': syncConfiguration, 'nwDnsBaseline': nwDnsBaseline,
                                                        'nwBdosBaseline'   : nwBdosBaseline, 'networkPoliciesExecptions': networkPoliciesExecptions,
-                                                       'srvHttpBaseline'  : srvHttpBaseline])
+                                                       'srvHttpBaseline'  : srvHttpBaseline, 'safeRevert' : safeRevert])
 
             try {
                 log.info('restart vdirect connection..')

@@ -17,7 +17,7 @@
 #device($standByDevices, 'type=defensePro[]', 'prompt=DefensePro Destintation Devices', 'lazyConnect=true')
 #param($deleteUnusedPolicies, 'type=bool', 'in', 'prompt=Delete Passive Device Spare Policies', 'defaultValue=false')
 #param($syncConfiguration, 'type=bool', 'in', 'prompt=Sync Configuration?', 'required=false', 'defaultValue=true')
-
+#param($safeRevert, 'type=bool', 'in', 'prompt=safe revert?', 'required=false', 'defaultValue=true')
 
 #param($nwDnsBaseline, 'type=bool', 'prompt=DNS Baselines', 'required=false', 'defaultValue=true')
 #param($nwBdosBaseline, 'type=bool', 'prompt=BDoS Baselines', 'required=false', 'defaultValue=true')
@@ -143,6 +143,18 @@
 	#set($importDevice.importPolicyOptions.secure = true)
 	#set($importDevice.importPolicyOptions.fixNewLines = true)
 	#set($importDevice.importPolicyOptions.cleanUpExisting = true)
+
+	##set export policy options for safe revert
+	#set($importDevice.exportNetworkPolicyOptions.exportConfiguration = true)
+	#set($importDevice.exportNetworkPolicyOptions.exportBaselineBDoS = true)
+	#set($importDevice.exportNetworkPolicyOptions.exportBaselineDNS = true)
+	#set($importDevice.exportNetworkPolicyOptions.secure = true)
+	#set($importDevice.exportNetworkPolicyOptions.exportSignatureUserProfile = true)
+
+	#if($major_ver[0] == 8)
+		#set($importDevice.exportNetworkPolicyOptions.exportTrafficFiltersProfile = true)
+		#set($importDevice.exportNetworkPolicyOptions.exportBaselineHttpsFlood = true)
+	#end
 #end
 
 ##------------------------##
@@ -192,7 +204,23 @@
 		#end
 	#end
 #end
-#log("syslog-prefix Finished Reading all network policies from master device- $masterDevice.ip ")
+#log("syslog-prefix Finished Reading all network policies from master device - $masterDevice.ip ")
+
+
+#set($importDevicesNetworkPoliciesNames = {})
+#if($safeRevert)
+	#foreach($importDevice in $standByDevices)
+		#set($importDeviceNetworkPoliciesNames = [])
+		#log('debug',"safe revert is checked, collecting destination device $importDevice.ip network policy names")
+		#set($importDeviceNetworkPolicies = $importDevice.readAllBeans("RsIDSNewRulesEntry"))
+		#foreach($policyObj in $importDeviceNetworkPolicies)
+			#set($nada = $importDeviceNetworkPoliciesNames.add($policyObj.name))
+		#end
+		#set($nada = $importDevicesNetworkPoliciesNames.put($importDevice.ip, $importDeviceNetworkPoliciesNames))
+	#end
+	#log('debug',"finished reading all network policies from all devices")
+#end
+
 
 #if($major_ver[0] != 6)
 	#set($MAX_POLICIES = $HT_MAX_POLICIES)
@@ -476,6 +504,17 @@
           #end
         #end
 		#if ($isNwPol)
+			#if($safeRevert)
+				#log('debug',"SafeRevert - Exporting Network policy $policyName from import device $importDevice.ip")
+				#set($importDevicePolicies = $importDevicesNetworkPoliciesNames.get($importDevice.ip))
+				#if($importDevicePolicies.contains($policyName))
+					#set($exportResult = $importDevice.exportNetworkPolicy($policyName))
+					#set($importDeviceOrigPolicy = true)
+				#else
+					#log('debug',"import device don't contain policy $policyName")
+					#set($importDeviceOrigPolicy = false)
+				#end
+			#end
         	#log('debug',"Importing Network policy $policyName")
 			#set($result = $importDevice.importNetworkPolicy($policy))
 		#else
@@ -517,6 +556,19 @@
 			#if(!$result.success)
 				#set($error = {'policy': $policyName, 'error': $result.message, 'host': $importDevice.host})
 				#if ($isNwPol)
+					#if($safeRevert && $importDeviceOrigPolicy)
+						#if($exportResult.success)
+							#log('debug', "SafeRevert is checked, new policy $policyName import failed, reverting to previous config")
+							#set($revertResult = $importDevice.importNetworkPolicy($exportResult.policy))
+							#if($revertResult.success)
+								#log('debug', "Reverting to previous $policyName config success")
+							#else
+								#log('debug', "Reverting to previous $policyName config failed, $revertResult.message")
+							#end
+						#else
+							#log('debug', "SafeRevert is checked, new policy $policyName import failed, but export of old config failed, $exportResult.message")
+						#end
+					#end
 					#set($errorMessage = "Failed to import network policy $policyName on $importDevice.host $result.message")
 					#log('debug', "Failed to import network policy ${policyName} on ${importDevice.host} ${result.message}")
 					#set($dummy = $networkImportErrors.add($error))
