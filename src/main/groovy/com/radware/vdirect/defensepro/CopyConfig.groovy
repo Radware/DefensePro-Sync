@@ -401,18 +401,14 @@ class CopyConfig {
             if (syncBlackWhiteList || syncConfiguration){
                 Helpers.syncPhysicalPortGroup(masterDevice, deviceConnectionList)
             }
-            if (syncBlackWhiteList) {
+/*            if (syncBlackWhiteList) {
                 SyncNetworkClass.syncNwClass(masterDevice, deviceConnectionList, deleteUnusedPolicies)
                 SyncBlockAllow.syncBlockAllow(masterDevice, deviceConnectionList, deleteUnusedPolicies)
-            }
+            }*/
 
             if (syncBlackWhiteList) {
                 SyncNetworkClass.syncNwClass(masterDevice, deviceConnectionList, false)
                 SyncBlockAllow.syncBlockAllow(masterDevice, deviceConnectionList, false)
-            }
-            if (syncBlackWhiteList) {
-                SyncBlockAllow.syncBlockAllow(masterDevice, deviceConnectionList, deleteUnusedPolicies)
-                SyncNetworkClass.syncNwClass(masterDevice, deviceConnectionList, deleteUnusedPolicies)
             }
 
             def tempResult = runTemplate('dpSync.vm', ['masterDevice' : masterDevice, 'standByDevices': deviceConnectionList, 'deleteUnusedPolicies': deleteUnusedPolicies,
@@ -425,6 +421,11 @@ class CopyConfig {
                 runTemplate('no-op.vm', ['masterDevice'     : masterDevice, 'standByDevices': deviceConnectionList])
             } catch (Exception restart) {
                 //reboot script throws exception to cause vDirect to remove current connection
+            }
+
+            if (syncBlackWhiteList && deleteUnusedPolicies) {
+                SyncBlockAllow.syncBlockAllow(masterDevice, deviceConnectionList, deleteUnusedPolicies)
+                SyncNetworkClass.syncNwClass(masterDevice, deviceConnectionList, deleteUnusedPolicies)
             }
 
             if(syncConfiguration){
