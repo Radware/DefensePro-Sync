@@ -410,7 +410,6 @@ class CopyConfig {
                 SyncNetworkClass.syncNwClass(masterDevice, deviceConnectionList, false)
                 SyncBlockAllow.syncBlockAllow(masterDevice, deviceConnectionList, false)
             }
-
             def tempResult = runTemplate('dpSync.vm', ['masterDevice' : masterDevice, 'standByDevices': deviceConnectionList, 'deleteUnusedPolicies': deleteUnusedPolicies,
                                                        'syncConfiguration': syncConfiguration, 'nwDnsBaseline': nwDnsBaseline,
                                                        'nwBdosBaseline'   : nwBdosBaseline, 'networkPoliciesExecptions': networkPoliciesExecptions,

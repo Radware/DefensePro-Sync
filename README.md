@@ -42,7 +42,9 @@ values:
 5. Max duration for the Script should take not more than 10 min.
 
 ## Supported Versions
-Defense Pro 8.26.2
+Defense Pro 8.26.2 \ 8.26.3
+
+Vision 4.85.11
 
 ## How to install
 
