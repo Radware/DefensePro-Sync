@@ -62,7 +62,7 @@ Vision 4.85.11
 	* Dest DP - setting the destination DP list.
     * Select src device Dynamic (false) - overriding the source & dest device and choosing the source device as the one who has the current higher bw.
 	* Delete Passive Device spare Policies (false) - Any policy that exists on dest device but not on source will be deleted.
-	* Sync SSL Certificates (false)
+	* Sync SSL Certificates (false) - Syncs Certs+Key, Requires HTTPs credentials input (Credentials must be the same for all devices)
 	* Sync Configuration (true) - Sync device config, mainly network policies and their dependencies (as mentioned in 'General Information').
 	* Sync Black\White Lists (false) - This function will sync all network classes and black\white lists.
 	* DNS Baselines (true) - Sync network policy DNS baseline, if any.
