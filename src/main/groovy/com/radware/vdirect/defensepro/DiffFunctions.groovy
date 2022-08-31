@@ -111,14 +111,14 @@ class DiffFunctions {
                 copyConfig.addToString(dstSb, key + ": ", value.toString())
             }
             if (srcSb.toString().equals(dstSb.toString())) {
-                log.debug String.format("AppPortGroup match, src: %s : dst: %s", srcSb.toString(), dstSb.toString())
+                log.debug String.format("Physical Port Group match, src: %s : dst: %s", srcSb.toString(), dstSb.toString())
                 return "matched"
-            } else {
-                log.debug String.format("AppPortGroup update, src: %s : dst: %s", srcSb.toString(), dstSb.toString())
+            } /*else {
+                log.debug String.format("Physical Port Group update, src: %s : dst: %s", srcSb.toString(), dstSb.toString())
                 return "update"
-            }
+            }*/
         } else {
-            log.debug String.format("AppPortGroup notmatched, src: %s : dst: %s", src.getName().toString(), dst.getName().toString())
+            log.debug String.format("Physical Port Group notmatched, src: %s : dst: %s", src.getName().toString(), dst.getName().toString())
             return "nonmatched"
         }
     }

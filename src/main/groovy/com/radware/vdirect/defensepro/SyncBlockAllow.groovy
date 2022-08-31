@@ -12,40 +12,22 @@ import org.slf4j.LoggerFactory
 class SyncBlockAllow {
     public static final Logger log = LoggerFactory.getLogger(SyncBlockAllow.class)
 
-    public static syncBlockAllow(DeviceConnection sourceDevice, List<DeviceConnection> destinationDevices,
-                              Boolean deleteUnusedPolicies){
-        /*
-        test of sync white list bean
-        Read All
-        * */
+    public static syncAppPortGroup(DeviceConnection sourceDevice, List<DeviceConnection> destinationDevices,
+                                   Boolean deleteUnusedPolicies){
         DiffFunctions diffFunctions = new DiffFunctions()
         boolean foundMatchingBean
-
-        RsNewWhiteListEntry srcWhiteListEntry = new RsNewWhiteListEntry()
-        List<RsNewWhiteListEntry> srcWLBeans = (List<RsNewWhiteListEntry>) sourceDevice.readAll(srcWhiteListEntry)
-        RsNewWhiteListEntry dstWhiteListEntry = new RsNewWhiteListEntry()
-
-        RsNewBlackListEntry srcBlackListEntry = new RsNewBlackListEntry()
-        List<RsNewBlackListEntry> srcBLBeans = (List<RsNewBlackListEntry>) sourceDevice.readAll(srcBlackListEntry)
-        RsNewBlackListEntry dstBlackListEntry = new RsNewBlackListEntry()
 
         RsBWMAppPortGroupEntry srcAppPortGroupEntry = new RsBWMAppPortGroupEntry()
         List<RsBWMAppPortGroupEntry> srcAppPortGroupBeans = (List<RsBWMAppPortGroupEntry>) sourceDevice.readAll(srcAppPortGroupEntry)
         RsBWMAppPortGroupEntry dstAppPortGroupEntry = new RsBWMAppPortGroupEntry()
 
-        RsBWMPhysicalPortGroupEntry srcPhysicalPortGroupEntry = new RsBWMPhysicalPortGroupEntry()
-        List<RsBWMPhysicalPortGroupEntry> srcPhysicalPortGroupBeans = (List<RsBWMPhysicalPortGroupEntry>) sourceDevice.readAll(srcPhysicalPortGroupEntry)
-        RsBWMPhysicalPortGroupEntry dstPhysicalPortGroupEntry = new RsBWMPhysicalPortGroupEntry()
-
 
         destinationDevices.each { dp ->
             //log.info("started app port sync + black white lists")
             log.info String.format("working on dp %s", dp.getManagementIp())
-
-
-            /*
-        sync App Port Groups bean
-        * */
+                    /*
+             sync App Port Groups bean
+             * */
 
             List<RsBWMAppPortGroupEntry> beansToDeleteAppPortGroup = []
             List<RsBWMAppPortGroupEntry> matchedDstAppPortGroupBeans = []
@@ -94,6 +76,114 @@ class SyncBlockAllow {
                 }*/
             }
 
+            if (matchedDstAppPortGroupBeans && deleteUnusedPolicies){
+                log.info("delete of app port group beans started")
+                deleteSparePolicies(matchedDstAppPortGroupBeans, dstAppPortGroupBeans, beansToDeleteAppPortGroup, dp)
+            }
+
+            dp.commit()
+        }
+
+
+
+
+
+
+    }
+
+    public static syncBlockAllow(DeviceConnection sourceDevice, List<DeviceConnection> destinationDevices,
+                              Boolean deleteUnusedPolicies){
+        /*
+        test of sync white list bean
+        Read All
+        * */
+        DiffFunctions diffFunctions = new DiffFunctions()
+        boolean foundMatchingBean
+
+        RsNewWhiteListEntry srcWhiteListEntry = new RsNewWhiteListEntry()
+        List<RsNewWhiteListEntry> srcWLBeans = (List<RsNewWhiteListEntry>) sourceDevice.readAll(srcWhiteListEntry)
+        RsNewWhiteListEntry dstWhiteListEntry = new RsNewWhiteListEntry()
+
+        RsNewBlackListEntry srcBlackListEntry = new RsNewBlackListEntry()
+        List<RsNewBlackListEntry> srcBLBeans = (List<RsNewBlackListEntry>) sourceDevice.readAll(srcBlackListEntry)
+        RsNewBlackListEntry dstBlackListEntry = new RsNewBlackListEntry()
+
+/*        RsBWMAppPortGroupEntry srcAppPortGroupEntry = new RsBWMAppPortGroupEntry()
+        List<RsBWMAppPortGroupEntry> srcAppPortGroupBeans = (List<RsBWMAppPortGroupEntry>) sourceDevice.readAll(srcAppPortGroupEntry)
+        RsBWMAppPortGroupEntry dstAppPortGroupEntry = new RsBWMAppPortGroupEntry()*/
+
+        RsBWMPhysicalPortGroupEntry srcPhysicalPortGroupEntry = new RsBWMPhysicalPortGroupEntry()
+        List<RsBWMPhysicalPortGroupEntry> srcPhysicalPortGroupBeans = (List<RsBWMPhysicalPortGroupEntry>) sourceDevice.readAll(srcPhysicalPortGroupEntry)
+        RsBWMPhysicalPortGroupEntry dstPhysicalPortGroupEntry = new RsBWMPhysicalPortGroupEntry()
+
+
+                /*
+        sync App Port Groups bean
+        * */
+        syncAppPortGroup(sourceDevice, destinationDevices, deleteUnusedPolicies)
+
+        destinationDevices.each { dp ->
+            //log.info("started app port sync + black white lists")
+            log.info String.format("working on dp %s", dp.getManagementIp())
+
+/*
+
+            */
+/*
+        sync App Port Groups bean
+        * *//*
+
+
+            List<RsBWMAppPortGroupEntry> beansToDeleteAppPortGroup = []
+            List<RsBWMAppPortGroupEntry> matchedDstAppPortGroupBeans = []
+            List<RsBWMAppPortGroupEntry> dstAppPortGroupBeans = (List<RsBWMAppPortGroupEntry>) dp.readAll(dstAppPortGroupEntry)
+
+            if (!srcAppPortGroupBeans.isEmpty()) {
+                log.info ("started application port group sync")
+                if (dstAppPortGroupBeans.isEmpty()) {
+                    log.info String.format("destination DP %s App port Group is empty", dp.getManagementIp())
+                    for (RsBWMAppPortGroupEntry srcBean : srcAppPortGroupBeans) {
+                        if (srcBean.getType().toString() != "STATIC" && !deleteUnusedPolicies) {
+                            dp.create(srcBean)
+                        }
+                    }
+                } else {
+                    for (RsBWMAppPortGroupEntry srcBean : srcAppPortGroupBeans) {
+                        foundMatchingBean = false
+                        for (RsBWMAppPortGroupEntry dstBean : dstAppPortGroupBeans) {
+                            String diffed = diffFunctions.diffAppPortGroups(srcBean, dstBean)
+                            if (diffed == "matched") {
+                                log.debug String.format("bean src: %s matched dst: %s", srcBean, dstBean)
+                                foundMatchingBean = true
+                                matchedDstAppPortGroupBeans.add(dstBean)
+                                break
+                            } else if (diffed == "update" && srcBean.getType().toString() != "STATIC") {
+                                foundMatchingBean = true
+                                matchedDstAppPortGroupBeans.add(dstBean)
+                                log.debug String.format("bean src: %s needs to be updated dst: %s", srcBean, dstBean)
+                                if (!deleteUnusedPolicies){
+                                    log.info String.format("bean src: %s needs to be updated dst: %s, " +
+                                            "but delete spare policies is checked", srcBean, dstBean)
+                                    dp.update(srcBean)
+                                }
+                                break
+                            }
+                        }
+                        if (!foundMatchingBean && srcBean.getType().toString() != "STATIC" && !deleteUnusedPolicies) {
+                            log.debug String.format("dest device has no bean %s", srcBean.getName())
+                            dp.create(srcBean)
+                        }
+                    }
+                }
+                */
+/*if (matchedDstAppPortGroupBeans && deleteUnusedPolicies){
+                    log.info("delete of app port group beans started")
+                    deleteSparePolicies(matchedDstAppPortGroupBeans, dstAppPortGroupBeans, beansToDeleteAppPortGroup, dp)
+                }*//*
+
+            }
+*/
+
 
 
 
@@ -130,9 +220,11 @@ class SyncBlockAllow {
                                 matchedDstPhysicalPortGroupBeans.add(dstBean)
                                 log.debug String.format("bean src: %s needs to be updated dst: %s", srcBean, dstBean)
                                 if (!deleteUnusedPolicies){
+                                    log.debug String.format("bean src: %s updated dst: %s", srcBean, dstBean)
+                                    dp.update(srcBean)
+                                }else{
                                     log.info String.format("bean src: %s needs to be updated dst: %s, " +
                                             "but delete spare policies is checked", srcBean, dstBean)
-                                    dp.update(srcBean)
                                 }
                                 break
                             }
@@ -298,10 +390,10 @@ class SyncBlockAllow {
                 deleteSparePolicies(matchedDstWLBeans, dstWLBeans, beansToDeleteWL, dp)
             }
 
-            if (matchedDstAppPortGroupBeans && deleteUnusedPolicies){
+/*            if (matchedDstAppPortGroupBeans && deleteUnusedPolicies){
                 log.info("delete of app port group beans started")
                 deleteSparePolicies(matchedDstAppPortGroupBeans, dstAppPortGroupBeans, beansToDeleteAppPortGroup, dp)
-            }
+            }*/
 
             if (matchedDstPhysicalPortGroupBeans && deleteUnusedPolicies){
                 log.info("delete of Physical Port Group bean started")

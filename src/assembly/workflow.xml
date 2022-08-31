@@ -3,7 +3,7 @@
   xmlns="http://www.radware.com/vdirect"
   name="dpSync"
   class="com.radware.vdirect.defensepro.CopyConfig"
-  version="1.7.1">
+  version="1.7.4">
   <title>Sync DefensePro config And Baselines</title>
   <description>Copy configuration from one DefensePro to another</description>
   <tags>defensepro</tags>

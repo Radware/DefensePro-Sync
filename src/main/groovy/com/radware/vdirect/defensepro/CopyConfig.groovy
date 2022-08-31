@@ -400,6 +400,7 @@ class CopyConfig {
 
             if (syncBlackWhiteList || syncConfiguration){
                 Helpers.syncPhysicalPortGroup(masterDevice, deviceConnectionList)
+                SyncBlockAllow.syncAppPortGroup(masterDevice, deviceConnectionList, false)
             }
 /*            if (syncBlackWhiteList) {
                 SyncNetworkClass.syncNwClass(masterDevice, deviceConnectionList, deleteUnusedPolicies)
@@ -425,6 +426,7 @@ class CopyConfig {
             if (syncBlackWhiteList && deleteUnusedPolicies) {
                 SyncBlockAllow.syncBlockAllow(masterDevice, deviceConnectionList, deleteUnusedPolicies)
                 SyncNetworkClass.syncNwClass(masterDevice, deviceConnectionList, deleteUnusedPolicies)
+                SyncBlockAllow.syncAppPortGroup(masterDevice, deviceConnectionList, deleteUnusedPolicies)
             }
 
             if(syncConfiguration){

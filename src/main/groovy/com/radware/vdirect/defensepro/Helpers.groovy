@@ -34,7 +34,7 @@ Read All
             List<RsBWMPhysicalPortGroupEntry> dstPhysicalPortGroupBeans = (List<RsBWMPhysicalPortGroupEntry>) dp.readAll(dstPhysicalPortGroupEntry)
 
             if (!srcPhysicalPortGroupBeans.isEmpty()) {
-                log.info("started application port group sync")
+                log.info("started physical port group sync")
 
                 if (dstPhysicalPortGroupBeans.isEmpty()) {
                     log.info String.format("destination DP %s App port Group is empty", dp.getManagementIp())
