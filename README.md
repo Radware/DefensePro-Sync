@@ -6,12 +6,12 @@ Sync DefensePro Configuration & Baselines.
 
 Download the release version of this project and upload to vDirect.
 
-## Important Notes
-1. Sync may take couple of min, during that time DP may terminate the connection, it is good practice to set the below 
-values:
-
-    # manage telnet session-timeout set 35
-    # manage ssh session-timeout set 35
+# Important Notes
+Sync may take couple of min, during that time DP may terminate the connection, it is good practice to set the below 
+values (value may change upon the amount of policies needed to be sync):
+    
+    - manage telnet session-timeout set 35
+    - manage ssh session-timeout set 35
 
 ## Supported Features
 
@@ -65,6 +65,7 @@ Vision 4.85.11
 	* Sync SSL Certificates (false) - Syncs Certs+Key, Requires HTTPs credentials input (Credentials must be the same for all devices)
 	* Sync Configuration (true) - Sync device config, mainly network policies and their dependencies (as mentioned in 'General Information').
 	* Sync Black\White Lists (false) - This function will sync all network classes and black\white lists.
+	* Policy Import Interval (in seconds) - Import Interval between each import policy.
 	* DNS Baselines (true) - Sync network policy DNS baseline, if any.
 	* BDoS Baselines (true) - Sync network policy BDoS baseline, if any.
 	* Network Protection Baseline Exception List - In case of Active-Active you can select which policy baseline to to sync.

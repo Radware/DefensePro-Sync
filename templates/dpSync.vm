@@ -18,6 +18,7 @@
 #param($deleteUnusedPolicies, 'type=bool', 'in', 'prompt=Delete Passive Device Spare Policies', 'defaultValue=false')
 #param($syncConfiguration, 'type=bool', 'in', 'prompt=Sync Configuration?', 'required=false', 'defaultValue=true')
 #param($safeRevert, 'type=bool', 'in', 'prompt=safe revert?', 'required=false', 'defaultValue=true')
+#param($importInterval, 'type=int', 'in', 'prompt=Import Interval (in seconds)', 'required=true', 'defaultValue=0')
 
 #param($nwDnsBaseline, 'type=bool', 'prompt=DNS Baselines', 'required=false', 'defaultValue=true')
 #param($nwBdosBaseline, 'type=bool', 'prompt=BDoS Baselines', 'required=false', 'defaultValue=true')
@@ -468,7 +469,8 @@
 		#end
 		## The result object contains success, policy, and message config
 		#if($result.success)
-			##ps_common_sleep(2)
+			##Adding delay upon each export\import to reduce cpu load
+			#ps_common_sleep($importInterval)
 			#set($policy = $result.policy)
 			#if($isNwPol)
 				#importPolicy($policy, $standByDevices, true, $policyName, $instance)

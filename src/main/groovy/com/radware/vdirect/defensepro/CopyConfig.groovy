@@ -239,6 +239,8 @@ class CopyConfig {
                     defaultValue = 'true') boolean nwDnsBaseline,
             @Param(name = 'nwBdosBaseline', type = 'bool', prompt = 'BDoS Baselines',
                     defaultValue = 'true') boolean nwBdosBaseline,
+            @Param(name = 'importInterval', type = 'int', prompt = 'Policy Import Interval',
+                    defaultValue = '10', minValue = '10', maxValue = '30') Integer importInterval,
             @Param(name = 'networkPoliciesExecptions', type = 'string[]',
                     prompt = 'Network Protection -BASELINES- \n Exception List (Case Sensitive)',
                     required = true, defaultValue = '[]') String[] networkPoliciesExecptions,
@@ -414,7 +416,7 @@ class CopyConfig {
             def tempResult = runTemplate('dpSync.vm', ['masterDevice' : masterDevice, 'standByDevices': deviceConnectionList, 'deleteUnusedPolicies': deleteUnusedPolicies,
                                                        'syncConfiguration': syncConfiguration, 'nwDnsBaseline': nwDnsBaseline,
                                                        'nwBdosBaseline'   : nwBdosBaseline, 'networkPoliciesExecptions': networkPoliciesExecptions,
-                                                       'srvHttpBaseline'  : srvHttpBaseline, 'safeRevert' : safeRevert])
+                                                       'srvHttpBaseline'  : srvHttpBaseline, 'safeRevert' : safeRevert, 'importInterval': importInterval])
 
             try {
                 log.info('restart vdirect connection..')
