@@ -42,9 +42,10 @@ values (value may change upon the amount of policies needed to be sync):
 5. Max duration for the Script should take not more than 10 min.
 
 ## Supported Versions
-Defense Pro 8.26.2 \ 8.26.3
+[Supported Versions](https://support.radware.com/app/answers/answer_view/a_id/1036305/loc/en_US)
 
-Vision 4.85.11
+## Radware KB
+[Radware KB](https://support.radware.com/app/answers/answer_view/a_id/1033631/loc/en_US)
 
 ## How to install
 
