@@ -13,6 +13,8 @@ values (value may change upon the amount of policies needed to be sync):
     - manage telnet session-timeout set 35
     - manage ssh session-timeout set 35
 
+In the event of large number of policies, you may need to set to true the "Update Policies for each import operation" boolean.
+
 ## Supported Features
 
 	- Network Policy with all its dependencies.
@@ -67,6 +69,7 @@ values (value may change upon the amount of policies needed to be sync):
 	* Sync Configuration (true) - Sync device config, mainly network policies and their dependencies (as mentioned in 'General Information').
 	* Sync Black\White Lists (false) - This function will sync all network classes and black\white lists.
 	* Policy Import Interval (in seconds) - Import Interval between each import policy.
+ 	* Update Policies for each import operation (false) - In case of import policy failures, enable this checkbox.
 	* DNS Baselines (true) - Sync network policy DNS baseline, if any.
 	* BDoS Baselines (true) - Sync network policy BDoS baseline, if any.
 	* Network Protection Baseline Exception List - In case of Active-Active you can select which policy baseline to to sync.
