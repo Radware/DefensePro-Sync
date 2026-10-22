@@ -74,7 +74,7 @@ In the event of large number of policies, you may need to set to true the "Updat
  	* Update Policies for each import operation (false) - In case of import policy failures, enable this checkbox.
 	* DNS Baselines (true) - Sync network policy DNS baseline, if any.
 	* BDoS Baselines (true) - Sync network policy BDoS baseline, if any.
-	* Network Protection Baseline Exception List - In case of Active-Active you can select which policy baseline to to sync.
+	* Network Protection Baseline Exception List - Policies listed in the Exception List are excluded from baseline synchronization.
 	* HTTP Baselines (false) - Relevant for DP versions 6 & 7 only, syncing HTTP baselines.
 	* Mail Notification (false)- Send Mail report on each exectuion, including errors if any.
 
