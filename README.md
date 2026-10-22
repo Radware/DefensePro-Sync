@@ -2,7 +2,7 @@
 
 Sync DefensePro Configuration & Baselines.
 
-# Latest Versions are now available in Radware Portal
+# Latest Versions & Documentations are now available in Radware Portal
 
 ## Installation
 
